@@ -32,6 +32,7 @@ from numpy import linalg as LA
 from rdkit import Chem
 from copy import deepcopy
 import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import time
 from data_augmentation import *
 
@@ -119,64 +120,64 @@ class DenseGGNNChemModel(ChemModel):
         h_dim = self.params['hidden_size'] 
         out_dim = self.params['encoding_size']
         expanded_h_dim=self.params['hidden_size']+self.params['hidden_size'] + 1 # 1 for focus bit
-        self.placeholders['graph_state_keep_prob'] = tf.placeholder(tf.float32, None, name='graph_state_keep_prob')
-        self.placeholders['edge_weight_dropout_keep_prob'] = tf.placeholder(tf.float32, None, name='edge_weight_dropout_keep_prob')
+        self.placeholders['graph_state_keep_prob'] = tf.compat.v1.placeholder(tf.float32, None, name='graph_state_keep_prob')
+        self.placeholders['edge_weight_dropout_keep_prob'] = tf.compat.v1.placeholder(tf.float32, None, name='edge_weight_dropout_keep_prob')
         # initial graph representation
-        self.placeholders['initial_node_representation_in'] = tf.placeholder(tf.float32,
+        self.placeholders['initial_node_representation_in'] = tf.compat.v1.placeholder(tf.float32,
                                                                           [None, None, self.params['hidden_size']],
                                                                           name='node_features_in')  # padded node symbols
-        self.placeholders['initial_node_representation_out'] = tf.placeholder(tf.float32,
+        self.placeholders['initial_node_representation_out'] = tf.compat.v1.placeholder(tf.float32,
                                                                           [None, None, self.params['hidden_size']],
                                                                           name='node_features_out')  # padded node symbols
         # mask out invalid node
-        self.placeholders['node_mask_in'] = tf.placeholder(tf.float32, [None, None], name='node_mask_in') # [b x v]
-        self.placeholders['node_mask_out'] = tf.placeholder(tf.float32, [None, None], name='node_mask_out') # [b x v]
-        self.placeholders['num_vertices'] = tf.placeholder(tf.int32, ())
+        self.placeholders['node_mask_in'] = tf.compat.v1.placeholder(tf.float32, [None, None], name='node_mask_in') # [b x v]
+        self.placeholders['node_mask_out'] = tf.compat.v1.placeholder(tf.float32, [None, None], name='node_mask_out') # [b x v]
+        self.placeholders['num_vertices'] = tf.compat.v1.placeholder(tf.int32, ())
         # adj for encoder
-        self.placeholders['adjacency_matrix_in'] = tf.placeholder(tf.float32,
+        self.placeholders['adjacency_matrix_in'] = tf.compat.v1.placeholder(tf.float32,
                                                     [None, self.num_edge_types, None, None], name="adjacency_matrix_in")     # [b, e, v, v]
-        self.placeholders['adjacency_matrix_out'] = tf.placeholder(tf.float32,
+        self.placeholders['adjacency_matrix_out'] = tf.compat.v1.placeholder(tf.float32,
                                                     [None, self.num_edge_types, None, None], name="adjacency_matrix_out")     # [b, e, v, v]
 
         # labels for node symbol prediction
-        self.placeholders['node_symbols_in'] = tf.placeholder(tf.float32, [None, None, self.params['num_symbols']]) # [b, v, edge_type]
-        self.placeholders['node_symbols_out'] = tf.placeholder(tf.float32, [None, None, self.params['num_symbols']]) # [b, v, edge_type]
+        self.placeholders['node_symbols_in'] = tf.compat.v1.placeholder(tf.float32, [None, None, self.params['num_symbols']]) # [b, v, edge_type]
+        self.placeholders['node_symbols_out'] = tf.compat.v1.placeholder(tf.float32, [None, None, self.params['num_symbols']]) # [b, v, edge_type]
         # node symbols used to enhance latent representations
-        self.placeholders['latent_node_symbols_in'] = tf.placeholder(tf.float32, 
+        self.placeholders['latent_node_symbols_in'] = tf.compat.v1.placeholder(tf.float32, 
                                                       [None, None, self.params['hidden_size']], name='latent_node_symbol_in') # [b, v, h]
-        self.placeholders['latent_node_symbols_out'] = tf.placeholder(tf.float32,
+        self.placeholders['latent_node_symbols_out'] = tf.compat.v1.placeholder(tf.float32,
                                                       [None, None, self.params['hidden_size']], name='latent_node_symbol_out') # [b, v, h]
 
         # mask out cross entropies in decoder
-        self.placeholders['iteration_mask_out']=tf.placeholder(tf.float32, [None, None]) # [b, es]
+        self.placeholders['iteration_mask_out']=tf.compat.v1.placeholder(tf.float32, [None, None]) # [b, es]
         # adj matrices used in decoder
-        self.placeholders['incre_adj_mat_out']=tf.placeholder(tf.float32, [None, None, self.num_edge_types, None, None], name='incre_adj_mat_out') # [b, es, e, v, v]
+        self.placeholders['incre_adj_mat_out']=tf.compat.v1.placeholder(tf.float32, [None, None, self.num_edge_types, None, None], name='incre_adj_mat_out') # [b, es, e, v, v]
         # distance 
-        self.placeholders['distance_to_others_out']=tf.placeholder(tf.int32, [None, None, None], name='distance_to_others_out') # [b, es,v]
+        self.placeholders['distance_to_others_out']=tf.compat.v1.placeholder(tf.int32, [None, None, None], name='distance_to_others_out') # [b, es,v]
         # maximum iteration number of this batch
-        self.placeholders['max_iteration_num']=tf.placeholder(tf.int32, [], name='max_iteration_num') # number
+        self.placeholders['max_iteration_num']=tf.compat.v1.placeholder(tf.int32, [], name='max_iteration_num') # number
         # node number in focus at each iteration step
-        self.placeholders['node_sequence_out']=tf.placeholder(tf.float32, [None, None, None], name='node_sequence_out') # [b, es, v]
+        self.placeholders['node_sequence_out']=tf.compat.v1.placeholder(tf.float32, [None, None, None], name='node_sequence_out') # [b, es, v]
         # mask out invalid edge types at each iteration step 
-        self.placeholders['edge_type_masks_out']=tf.placeholder(tf.float32, [None, None, self.num_edge_types, None], name='edge_type_masks_out') # [b, es, e, v]
+        self.placeholders['edge_type_masks_out']=tf.compat.v1.placeholder(tf.float32, [None, None, self.num_edge_types, None], name='edge_type_masks_out') # [b, es, e, v]
         # ground truth edge type labels at each iteration step 
-        self.placeholders['edge_type_labels_out']=tf.placeholder(tf.float32, [None, None, self.num_edge_types, None], name='edge_type_labels_out') # [b, es, e, v]
+        self.placeholders['edge_type_labels_out']=tf.compat.v1.placeholder(tf.float32, [None, None, self.num_edge_types, None], name='edge_type_labels_out') # [b, es, e, v]
         # mask out invalid edge at each iteration step 
-        self.placeholders['edge_masks_out']=tf.placeholder(tf.float32, [None, None, None], name='edge_masks_out') # [b, es, v]
+        self.placeholders['edge_masks_out']=tf.compat.v1.placeholder(tf.float32, [None, None, None], name='edge_masks_out') # [b, es, v]
         # ground truth edge labels at each iteration step 
-        self.placeholders['edge_labels_out']=tf.placeholder(tf.float32, [None, None, None], name='edge_labels_out') # [b, es, v]        
+        self.placeholders['edge_labels_out']=tf.compat.v1.placeholder(tf.float32, [None, None, None], name='edge_labels_out') # [b, es, v]        
         # ground truth labels for whether it stops at each iteration step
-        self.placeholders['local_stop_out']=tf.placeholder(tf.float32, [None, None], name='local_stop_out') # [b, es]
+        self.placeholders['local_stop_out']=tf.compat.v1.placeholder(tf.float32, [None, None], name='local_stop_out') # [b, es]
         # z_prior sampled from standard normal distribution
-        self.placeholders['z_prior']=tf.placeholder(tf.float32, [None, None, self.params['encoding_size']], name='z_prior') # prior z ~ normal distribution - output molecule
-        self.placeholders['z_prior_in']=tf.placeholder(tf.float32, [None, None, self.params['hidden_size']], name='z_prior_in') # prior z ~ normal distribution - input molecule
+        self.placeholders['z_prior']=tf.compat.v1.placeholder(tf.float32, [None, None, self.params['encoding_size']], name='z_prior') # prior z ~ normal distribution - output molecule
+        self.placeholders['z_prior_in']=tf.compat.v1.placeholder(tf.float32, [None, None, self.params['hidden_size']], name='z_prior_in') # prior z ~ normal distribution - input molecule
         # put in front of kl latent loss
-        self.placeholders['kl_trade_off_lambda']=tf.placeholder(tf.float32, [], name='kl_trade_off_lambda') # number
+        self.placeholders['kl_trade_off_lambda']=tf.compat.v1.placeholder(tf.float32, [], name='kl_trade_off_lambda') # number
         # overlapped edge features
-        self.placeholders['overlapped_edge_features_out']=tf.placeholder(tf.int32, [None, None, None], name='overlapped_edge_features_out') # [b, es, v]
+        self.placeholders['overlapped_edge_features_out']=tf.compat.v1.placeholder(tf.int32, [None, None, None], name='overlapped_edge_features_out') # [b, es, v]
         # weights for loss (based on compound freqs)
-        self.placeholders['new_compound_freqs_out']=tf.placeholder(tf.float32, [None, None, None], name='new_compound_freqs_out') # [b, es, v]
-        self.placeholders['new_compound_freqs_edge_out']=tf.placeholder(tf.float32, [None, None, None, None], name='new_compound_freqs_out') # [b, es, e, v]
+        self.placeholders['new_compound_freqs_out']=tf.compat.v1.placeholder(tf.float32, [None, None, None], name='new_compound_freqs_out') # [b, es, v]
+        self.placeholders['new_compound_freqs_edge_out']=tf.compat.v1.placeholder(tf.float32, [None, None, None, None], name='new_compound_freqs_out') # [b, es, e, v]
 
         # weights for encoder and decoder GNN. 
         if self.params["residual_connection_on"]:
@@ -187,13 +188,13 @@ class DenseGGNNChemModel(ChemModel):
                 else:
                     new_h_dim=expanded_h_dim
                 for iter_idx in range(self.params['num_timesteps']):
-                    with tf.variable_scope("gru_scope"+scope+str(iter_idx), reuse=False):
+                    with tf.compat.v1.variable_scope("gru_scope"+scope+str(iter_idx), reuse=False):
                         self.weights['edge_weights'+scope+str(iter_idx)] = tf.Variable(glorot_init([self.num_edge_types, new_h_dim, new_h_dim]))
                         if self.params['use_edge_bias']:
                             self.weights['edge_biases'+scope+str(iter_idx)] = tf.Variable(np.zeros([self.num_edge_types, 1, new_h_dim]).astype(np.float32))
                 
-                        cell = tf.contrib.rnn.GRUCell(new_h_dim)
-                        cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                        cell = tf.compat.v1.nn.rnn_cell.GRUCell(new_h_dim)
+                        cell = tf.compat.v1.nn.rnn_cell.DropoutWrapper(cell,
                                         state_keep_prob=self.placeholders['graph_state_keep_prob'])
                         self.weights['node_gru'+scope+str(iter_idx)] = cell
         else:
@@ -205,9 +206,9 @@ class DenseGGNNChemModel(ChemModel):
                 self.weights['edge_weights'+scope] = tf.Variable(glorot_init([self.num_edge_types, new_h_dim, new_h_dim]))
                 if self.params['use_edge_bias']:
                     self.weights['edge_biases'+scope] = tf.Variable(np.zeros([self.num_edge_types, 1, new_h_dim]).astype(np.float32))
-                with tf.variable_scope("gru_scope"+scope):
-                    cell = tf.contrib.rnn.GRUCell(new_h_dim)
-                    cell = tf.nn.rnn_cell.DropoutWrapper(cell,
+                with tf.compat.v1.variable_scope("gru_scope"+scope):
+                    cell = tf.compat.v1.nn.rnn_cell.GRUCell(new_h_dim)
+                    cell = tf.compat.v1.nn.rnn_cell.DropoutWrapper(cell,
                                                          state_keep_prob=self.placeholders['graph_state_keep_prob'])
                     self.weights['node_gru'+scope] = cell
 
@@ -279,7 +280,7 @@ class DenseGGNNChemModel(ChemModel):
         # record all hidden states at each iteration
         all_hidden_states=[h]
         for iter_idx in range(self.params['num_timesteps']):
-            with tf.variable_scope("gru_scope"+scope_name+str(iter_idx), reuse=None) as g_scope:
+            with tf.compat.v1.variable_scope("gru_scope"+scope_name+str(iter_idx), reuse=None) as g_scope:
                 for edge_type in range(self.num_edge_types):
                     # the message passed from this vertice to other vertices
                     m = tf.matmul(h, self.weights['edge_weights'+scope_name+str(iter_idx)][edge_type])  # [b*v, h]
@@ -319,13 +320,13 @@ class DenseGGNNChemModel(ChemModel):
             h_dim = self.params['hidden_size']
         h = tf.reshape(h, [-1, h_dim])
 
-        with tf.variable_scope(gru_scope_name) as scope:
+        with tf.compat.v1.variable_scope(gru_scope_name) as scope:
             for i in range(self.params['num_timesteps']):
                 if i > 0:
-                    tf.get_variable_scope().reuse_variables()
+                    tf.compat.v1.get_variable_scope().reuse_variables()
                 for edge_type in range(self.num_edge_types):
                     m = tf.matmul(h, tf.nn.dropout(edge_weights[edge_type],
-                               keep_prob=self.placeholders['edge_weight_dropout_keep_prob']))           # [b*v, h]
+                               rate=1 - (self.placeholders['edge_weight_dropout_keep_prob'])))           # [b*v, h]
                     if self.params['use_edge_bias']:
                         m += edge_biases[edge_type]                                                     # [b, v, h]
                     m = tf.reshape(m, [-1, v, h_dim])                                                   # [b, v, h]
@@ -454,18 +455,18 @@ class DenseGGNNChemModel(ChemModel):
             [tf.tile(tf.expand_dims(node_in_focus, 1), [1,v,1]), new_filtered_z_sampled], axis=2) # [b, v, 2*(h+h)]            
         # combine edge repre with local and global repr
         local_graph_repr_before_expansion = tf.reduce_sum(new_filtered_z_sampled, axis=1) /  \
-                                            tf.reduce_sum(self.placeholders['node_mask_'+direc], axis=1, keep_dims=True) # [b, h + h]
+                                            tf.reduce_sum(self.placeholders['node_mask_'+direc], axis=1, keepdims=True) # [b, h + h]
         local_graph_repr = tf.expand_dims(local_graph_repr_before_expansion, 1)        
         local_graph_repr = tf.tile(local_graph_repr, [1,v,1])  # [b, v, h+h]        
         global_graph_repr_before_expansion = tf.reduce_sum(filtered_z_sampled, axis=1) / \
-                                            tf.reduce_sum(self.placeholders['node_mask_'+direc], axis=1, keep_dims=True)
+                                            tf.reduce_sum(self.placeholders['node_mask_'+direc], axis=1, keepdims=True)
         global_graph_repr = tf.expand_dims(global_graph_repr_before_expansion, 1)
         global_graph_repr = tf.tile(global_graph_repr, [1,v,1]) # [b, v, h+h]
         # distance representation
         distance_repr = tf.nn.embedding_lookup(self.weights['distance_embedding_'+direc_r], distance_to_others) # [b, v, h+h]
         # overlapped edge feature representation
         overlapped_edge_repr = tf.nn.embedding_lookup(self.weights['overlapped_edge_weight_'+direc_r], overlapped_edge_features) # [b, v, h+h]
-        # concat and reshape.
+        # concat and reshape
         combined_edge_repr = tf.concat([edge_repr, local_graph_repr,
                                        global_graph_repr, distance_repr, overlapped_edge_repr], axis=2)
       
@@ -521,7 +522,7 @@ class DenseGGNNChemModel(ChemModel):
                                       /(tf.reduce_sum(subgraph_freqs_mask+SMALL_NUMBER, axis=1, keepdims=True)), [1, v+1]) # [b, v+1]
 
             # Edge loss
-            edge_loss =- tf.reduce_sum(tf.log(edge_softmax + SMALL_NUMBER) * edge_labels * edge_loss_multi, axis=1)
+            edge_loss =- tf.reduce_sum(tf.math.log(edge_softmax + SMALL_NUMBER) * edge_labels * edge_loss_multi, axis=1)
     
             # Reweigh edge type probabilityies by subgraph frequencies 
             edge_type_probs = edge_type_probs * subgraph_edge_freqs
@@ -529,20 +530,20 @@ class DenseGGNNChemModel(ChemModel):
 
             # Reweigh edge type loss by subgraph frequencies
             subgraph_edge_freqs_mask = self.placeholders['edge_type_masks_'+direc][:, idx, :, :]
-            edge_type_loss_multi = tf.tile(tf.reduce_mean(subgraph_edge_freqs*subgraph_edge_freqs_mask+SMALL_NUMBER, axis=1, keep_dims=True) \
-                                           /(tf.reduce_sum(subgraph_edge_freqs_mask+SMALL_NUMBER, axis=1, keep_dims=True)+1.), [1, self.num_edge_types, 1]) # [b, e, v]
+            edge_type_loss_multi = tf.tile(tf.reduce_mean(subgraph_edge_freqs*subgraph_edge_freqs_mask+SMALL_NUMBER, axis=1, keepdims=True) \
+                                           /(tf.reduce_sum(subgraph_edge_freqs_mask+SMALL_NUMBER, axis=1, keepdims=True)+1.), [1, self.num_edge_types, 1]) # [b, e, v]
     
             # softmax for edge type 
-            edge_type_loss =- edge_type_labels * tf.log(edge_type_probs + SMALL_NUMBER) * edge_type_loss_multi # [b, e, v]
+            edge_type_loss =- edge_type_labels * tf.math.log(edge_type_probs + SMALL_NUMBER) * edge_type_loss_multi # [b, e, v]
             edge_type_loss = tf.reduce_sum(edge_type_loss, axis=[1,2]) # [b]
         # Don't reweigh - vanilla cross entropy
         else:
             # edge
             edge_softmax = tf.nn.softmax(edge_logits)
-            edge_loss =- tf.reduce_sum(tf.log(edge_softmax + SMALL_NUMBER) * edge_labels, axis=1)
+            edge_loss =- tf.reduce_sum(tf.math.log(edge_softmax + SMALL_NUMBER) * edge_labels, axis=1)
 
             # edge type
-            edge_type_loss =- edge_type_labels * tf.log(edge_type_probs + SMALL_NUMBER) # [b, e, v]
+            edge_type_loss =- edge_type_labels * tf.math.log(edge_type_probs + SMALL_NUMBER) # [b, e, v]
             edge_type_loss = tf.reduce_sum(edge_type_loss, axis=[1,2]) # [b]
 
         # total loss
@@ -571,9 +572,9 @@ class DenseGGNNChemModel(ChemModel):
         edge_predictions= tf.TensorArray(dtype=tf.float32, size=self.placeholders['max_iteration_num'])
         edge_type_predictions = tf.TensorArray(dtype=tf.float32, size=self.placeholders['max_iteration_num'])
         idx_final, cross_entropy_losses_final, edge_predictions_final,edge_type_predictions_final=\
-                tf.while_loop(lambda idx, cross_entropy_losses,edge_predictions,edge_type_predictions: idx < self.placeholders['max_iteration_num'],
-                self.generate_cross_entropy,
-                (tf.constant(0), cross_entropy_losses,edge_predictions,edge_type_predictions,))
+                tf.while_loop(cond=lambda idx, cross_entropy_losses,edge_predictions,edge_type_predictions: idx < self.placeholders['max_iteration_num'],
+                body=self.generate_cross_entropy,
+                loop_vars=(tf.constant(0), cross_entropy_losses,edge_predictions,edge_type_predictions,))
         # Record the predictions for generation
         self.ops['edge_predictions_'+in_direc] = edge_predictions_final.read(0)
         self.ops['edge_type_predictions_'+in_direc] = edge_type_predictions_final.read(0)
@@ -610,7 +611,7 @@ class DenseGGNNChemModel(ChemModel):
         
         # Node symbol loss
         self.ops['node_symbol_prob_'+in_direc] = tf.nn.softmax(self.ops['node_symbol_logits_'+in_direc])
-        self.ops['node_symbol_loss_'+in_direc] = -tf.reduce_sum(tf.log(self.ops['node_symbol_prob_'+in_direc] + SMALL_NUMBER) * 
+        self.ops['node_symbol_loss_'+in_direc] = -tf.reduce_sum(tf.math.log(self.ops['node_symbol_prob_'+in_direc] + SMALL_NUMBER) * 
                                                                 self.placeholders['node_symbols_'+out_direc], axis=[1,2])
 
         # Overall losses

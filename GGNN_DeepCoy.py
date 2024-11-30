@@ -70,12 +70,12 @@ class ChemModel(object):
         self.valid_data = self.load_data(params['valid_file'], is_training_data=False)
 
         # Build the actual model
-        config = tf.ConfigProto()
+        config = tf.compat.v1.ConfigProto()
         config.gpu_options.allow_growth = True
         self.graph = tf.Graph()
-        self.sess = tf.Session(graph=self.graph, config=config)
+        self.sess = tf.compat.v1.Session(graph=self.graph, config=config)
         with self.graph.as_default():
-            tf.set_random_seed(params['random_seed'])
+            tf.compat.v1.set_random_seed(params['random_seed'])
             self.placeholders = {}
             self.weights = {}
             self.ops = {}
@@ -119,12 +119,12 @@ class ChemModel(object):
         raise Exception("Models have to implement process_raw_graphs!")
 
     def make_model(self):
-        self.placeholders['num_graphs'] = tf.placeholder(tf.int64, [], name='num_graphs')
-        self.placeholders['out_layer_dropout_keep_prob'] = tf.placeholder(tf.float32, [], name='out_layer_dropout_keep_prob')
+        self.placeholders['num_graphs'] = tf.compat.v1.placeholder(tf.int64, [], name='num_graphs')
+        self.placeholders['out_layer_dropout_keep_prob'] = tf.compat.v1.placeholder(tf.float32, [], name='out_layer_dropout_keep_prob')
         # whether this session is for generating new graphs or not
-        self.placeholders['is_generative'] = tf.placeholder(tf.bool, [], name='is_generative')
+        self.placeholders['is_generative'] = tf.compat.v1.placeholder(tf.bool, [], name='is_generative')
 
-        with tf.variable_scope("graph_model"):
+        with tf.compat.v1.variable_scope("graph_model"):
             self.prepare_specific_graph_model()
 
             # Initial state: embedding
@@ -168,9 +168,9 @@ class ChemModel(object):
         self.ops['loss']=self.construct_loss()
         
     def make_train_step(self):
-        trainable_vars = self.sess.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        trainable_vars = self.sess.graph.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES)
         if self.args.get('--freeze-graph-model'):
-            graph_vars = set(self.sess.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="graph_model"))
+            graph_vars = set(self.sess.graph.get_collection(tf.compat.v1.GraphKeys.TRAINABLE_VARIABLES, scope="graph_model"))
             filtered_vars = []
             for var in trainable_vars:
                 if var not in graph_vars:
@@ -179,7 +179,7 @@ class ChemModel(object):
                     print("Freezing weights of variable %s." % var.name)
             trainable_vars = filtered_vars
 
-        optimizer = tf.train.AdamOptimizer(self.params['learning_rate'])
+        optimizer = tf.compat.v1.train.AdamOptimizer(self.params['learning_rate'])
         grads_and_vars = optimizer.compute_gradients(self.ops['loss'], var_list=trainable_vars)
         clipped_grads = []
         for grad, var in grads_and_vars:
@@ -194,7 +194,7 @@ class ChemModel(object):
         self.ops['grads']= grads_for_display
         self.ops['train_step'] = optimizer.apply_gradients(clipped_grads)
         # Initialize newly-introduced variables:
-        self.sess.run(tf.local_variables_initializer())
+        self.sess.run(tf.compat.v1.local_variables_initializer())
 
     def gated_regression(self, last_h, regression_gate, regression_transform):
         raise Exception("Models have to implement gated_regression!")
@@ -314,7 +314,7 @@ class ChemModel(object):
 
     def save_model(self, path: str) -> None:
         weights_to_save = {}
-        for variable in self.sess.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
+        for variable in self.sess.graph.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES):
             assert variable.name not in weights_to_save
             weights_to_save[variable.name] = self.sess.run(variable)
 
@@ -327,8 +327,8 @@ class ChemModel(object):
             pickle.dump(data_to_save, out_file, pickle.HIGHEST_PROTOCOL)
 
     def initialize_model(self) -> None:
-        init_op = tf.group(tf.global_variables_initializer(),
-                           tf.local_variables_initializer())
+        init_op = tf.group(tf.compat.v1.global_variables_initializer(),
+                           tf.compat.v1.local_variables_initializer())
         self.sess.run(init_op)
 
     def restore_model(self, path: str) -> None:
@@ -337,10 +337,10 @@ class ChemModel(object):
             data_to_load = pickle.load(in_file)
             
         variables_to_initialize = []
-        with tf.name_scope("restore"):
+        with tf.compat.v1.name_scope("restore"):
             restore_ops = []
             used_vars = set()
-            for variable in self.sess.graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES):
+            for variable in self.sess.graph.get_collection(tf.compat.v1.GraphKeys.GLOBAL_VARIABLES):
                 used_vars.add(variable.name)
                 if variable.name in data_to_load['weights']:
                     restore_ops.append(variable.assign(data_to_load['weights'][variable.name]))
@@ -350,5 +350,5 @@ class ChemModel(object):
             for var_name in data_to_load['weights']:
                 if var_name not in used_vars:
                     print('Saved weights for %s not used by model.' % var_name)
-            restore_ops.append(tf.variables_initializer(variables_to_initialize))
+            restore_ops.append(tf.compat.v1.variables_initializer(variables_to_initialize))
             self.sess.run(restore_ops)

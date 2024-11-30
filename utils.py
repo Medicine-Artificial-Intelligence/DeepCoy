@@ -499,7 +499,7 @@ class MLP(object):
     def __call__(self, inputs):
         acts = inputs
         for W, b in zip(self.params["weights"], self.params["biases"]):
-            hid = tf.matmul(acts, tf.nn.dropout(W, self.dropout_keep_prob)) + b
+            hid = tf.matmul(acts, tf.nn.dropout(W, rate=1 - (self.dropout_keep_prob))) + b
             acts = tf.nn.relu(hid)
         last_hidden = hid
         return last_hidden
